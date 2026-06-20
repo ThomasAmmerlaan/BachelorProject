@@ -1,108 +1,8 @@
-###
-#Made by: Thomas Ammerlaan
-#Institution: Leiden University
-
 ###libraries used
 library(ernest)
 library(ggplot2)
 library(ggdist)
 library(patchwork)
-library(pracma)
-
-#simple Gaussian 
-
-logf <- function(x){
-  x <- x[1]
-  log(exp(-(x^2)))
-}
-  
-#priors
-uniform <- create_uniform_prior(names = c("mu","dummy"), 
-                                lower = -1, upper = 1)
-normal <- create_normal_prior(names=c("mu","dummy"))
-
-#number of livepoints we run
-livepoint <- c(seq(5, 100, by = 5),seq(110, 500, by = 10),seq(550, 1000, by = 50))
-#The statistics we want to hold  
-empirical_logevidenceunif <-numeric()
-empirical_logevidence_sdunif <-numeric()
-empirical_logevidenceerrorunif <-numeric()
-empirical_informationunif <-numeric()
-  
-empirical_logevidencenormal <-numeric()
-empirical_logevidence_sdnormal <-numeric()
-empirical_logevidenceerrornormal <-numeric()
-empirical_informationnormal <-numeric()
-
-#nest sample runs for the livepoints 
-for (i in 1:length(livepoint)){
-  logevidenceruniunif <- numeric()
-  logerrorruniunif <- numeric()
-  informationruniunif <- numeric()
-  
-  logevidenceruninormal <- numeric()
-  logerrorruninormal <- numeric()
-  informationruninormal <- numeric()
-  for (j in 1:100){
-    set.seed(Sys.time())
-    sampleruniform <- ernest_sampler(logf, uniform, nlive = livepoint[i])
-    samplernormal <- ernest_sampler(logf, normal, nlive = livepoint[i])
-    resultsuniform <- generate(sampleruniform)
-    resultsnormal <- generate(samplernormal)
-    
-    logevidenceruniunif <- c(logevidenceruniunif, resultsuniform$log_evidence)
-    logerrorruniunif <- c(logerrorruniunif, resultsuniform$log_evidence_err)
-    informationruniunif <- c(informationruniunif,resultsuniform$information) 
-    
-    logevidenceruninormal <- c(logevidenceruninormal, resultsnormal$log_evidence)
-    logerrorruninormal <- c(logerrorruninormal, resultsnormal$log_evidence_err)
-    informationruninormal <- c(informationruninormal,resultsnormal$information) 
-  }
-  empirical_logevidenceunif <- c(empirical_logevidenceunif,
-                                 mean(logevidenceruniunif))
-  empirical_logevidence_sdunif <- c(empirical_logevidence_sdunif,
-                                    var(logevidenceruniunif))
-  empirical_logevidenceerrorunif <- c(empirical_logevidenceerrorunif, 
-                                      mean(logerrorruniunif))
-  empirical_informationunif <- c(empirical_informationunif, 
-                                 mean(informationruniunif))
-  
-  empirical_logevidencenormal <- c(empirical_logevidencenormal,
-                                   mean(logevidenceruninormal))
-  empirical_logevidence_sdnormal <- c(empirical_logevidence_sdnormal,
-                                      var(logevidenceruninormal))
-  empirical_logevidenceerrornormal <- c(empirical_logevidenceerrornormal, 
-                                        mean(logerrorruninormal))
-  empirical_informationnormal <- c(empirical_informationnormal, 
-                                   mean(informationruninormal))
-}
-plotl <-function(i){
-  plot(livepoint[i:length(livepoint)], empirical_logevidence_sdunif[i:length(livepoint)]
-       ,xlab="number of livepoints", 
-       ylab="emperical variance",ylim=c(0,empirical_logevidence_sdnormal[i]))
-  points(livepoint[i:length(livepoint)],empirical_informationunif[i:length(livepoint)]/livepoint[i:length(livepoint)]
-         ,type='l')
-  points(livepoint[i:length(livepoint)],empirical_informationnormal[i:length(livepoint)]/livepoint[i:length(livepoint)]
-         ,type='l', col='red')
-  points(livepoint[i:length(livepoint)], empirical_logevidence_sdnormal[i:length(livepoint)], col='red')
-  points(seq(2, 10000, by = 0.1),(1/2*(log(3))-1/2+1/6)/seq(2, 10000, by = 0.1)
-         ,type='l',lty=2, col='blue')
-  points(seq(2, 10000, by = 0.1),
-         (log(2)-log(sqrt(pi)*erf(1))-1/2+1/(exp(1)*sqrt(pi)*erf(1)))/seq(2, 10000, by = 0.1)
-         ,type='l',lty=2,col='green')
-}
-plotl(10)
-legend(x="topright", legend=c("uniform", "normal","theoretical normal","theoretical uniform"),
-       col=c('black','red','blue','green'),lty=c(1,1,2,2))
-
-plot(livepoint, exp(empirical_logevidencenormal), xlab = "number of livepoints", ylab="emperical evidence using normal prior")
-abline(h=1/sqrt(3), col="red")
-legend(x='bottomright', legend=c("theoretical value"),col="red", lty=1)
-plot(livepoint,exp(empirical_logevidenceunif),xlab="number of livepoints", ylab="emperical evidence using uniform prior")
-abline(h=1/2*sqrt(pi)*(erf(1)), col="blue")
-legend(x='bottomright', legend=c("theoretical value"),col="blue", lty=1)
-plot(livepoint, exp(empirical_logevidencenormal)-1/sqrt(3), xlab = "number of livepoints", ylab="emperical evidence using normal prior")
-plot(livepoint,exp(empirical_logevidenceunif)-1/2*sqrt(pi)*(erf(1)),xlab="number of livepoints", ylab="emperical evidence using uniform prior")
 
 ###mean change model
 #samples
@@ -154,6 +54,65 @@ for (i in 1:(n-1)){
 }
 Z_1 <- Z_1/((n-1)*sqrt(2*pi)^n)
 BFtheoretical_10 <- Z_1/Z_0
+
+
+sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive=1000)
+sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive=1000)
+result_M0 <- generate(sampler_M0)
+result_M1 <- generate(sampler_M1)
+
+#results
+
+summary(result_M0)
+summary(result_M1)
+
+#Bayesfactor BF_10 (both theoretical and numerical)
+BF_10 <- exp(result_M1$log_evidence-result_M0$log_evidence)
+BF_10
+
+BFtheoretical_10
+
+#posterior distributions
+visualize(result_M0,mu1, .which = "density")
+visualize(result_M1,mu1, .which = "density")
+visualize(result_M1,mu2, .which = "density")
+visualize(result_M1,tau, .which = "density")
+
+#nested sampling error distribution
+Zhat0 <- numeric()
+Zhat1 <- numeric()
+
+for(i in 1:5000){
+  set.seed(Sys.time())
+  sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive=100)
+  sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive=100)
+  result_M0 <- generate(sampler_M0)
+  result_M1 <- generate(sampler_M1)
+  Zhat0[i] <- result_M0$log_evidence
+  Zhat1[i] <- result_M1$log_evidence
+}
+
+H0 <- result_M0$information
+
+H1 <- result_M1$information
+
+epsilon0 <- seq(min(Zhat0-log(Z_0)),max(Zhat0-log(Z_0)),by=0.001)
+
+epsilon1 <- seq(min(Zhat1-log(Z_1)),max(Zhat1-log(Z_1)),by=0.001)
+
+hist(Zhat0[1:100]-log(Z_0),freq=FALSE, 
+     main='log(Zhat0)-log(Z0) with gaussian overlay')
+
+points(epsilon0 ,2*exp(-100*epsilon0^2/(2*(H0+epsilon0)))
+       ,type='l', col='red')
+
+hist(Zhat1[1:200]-log(Z_1),freq=FALSE, 
+     main = 'log(Zhat1)-log(Z1) with gaussian overlay')
+
+points(epsilon1 ,2*exp(-100*epsilon1^2/(2*(H1+epsilon1)))
+       ,type='l', col='red')
+
+statsZhat <- matrix(c(Zhat0,Zhat1,Zhat0-log(Z_0),Zhat1-log(Z_1)),nrow=5000,ncol=4)
 
 ###Convergence
 

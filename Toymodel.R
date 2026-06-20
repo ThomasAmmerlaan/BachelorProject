@@ -1,3 +1,7 @@
+###
+#Made by: Thomas Ammerlaan
+#Institution: Leiden University
+
 ###libraries used
 library(ernest)
 library(ggplot2)
@@ -6,12 +10,16 @@ library(patchwork)
 
 ###mean change model
 #samples
-
+#set.seed(123)
 n <- 100
 tau <- 50
 Y <- c(rnorm(tau),rnorm(n-tau, mean= 1))
 
+hist(Y, breaks = 25, freq = FALSE)
+
+#set.seed(Sys.time())
 #loglikelihoods of model 0 and 1
+
 
 loglik_M0 <- function(theta){
   mu <- theta[1]
@@ -20,7 +28,7 @@ loglik_M0 <- function(theta){
 loglik_M1 <- function(theta){
   mu1 <-theta[1]
   mu2 <-theta[2]
-  tau <-as.integer(theta[3])
+  tau <-theta[3] #replace with as.integer(theta[3]) when using uniform prior
   part1 <- sum(dnorm(Y[1:tau], mean = mu1, sd = 1, log = TRUE))
   part2 <- sum(dnorm(Y[(tau+1):n], mean = mu2, sd = 1, log = TRUE))
   part1+part2
@@ -30,28 +38,16 @@ loglik_M1 <- function(theta){
 prior_M0 <- create_normal_prior(names=c("mu1","dummy"))
 
 norm_M1 <- create_normal_prior(names=c("mu1","mu2"))
-unif_M1 <- create_uniform_prior(names="tau", lower=1, upper=n-1)
+#unif_M1 <- create_uniform_prior(names="tau", lower=1, upper=n-1)
+
+uniftr <- function(u) {
+  floor((n-1)*u) + 1
+}
+unif_M1 <- create_prior(vectorized_fn=uniftr, names="tau")#discrete uniform
+#tau_M1 <- create_uniform_prior(names= "tau", lower=1,upper=n-1) #uniform
 prior_M1 <- norm_M1+unif_M1
 
-
-#nested sampling
-sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive=1000)
-sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive=1000)
-
-
-#results
-result_M0 <- generate(sampler_M0)
-result_M1 <- generate(sampler_M1)
-
-summary(result_M0)
-summary(result_M1)
-
-
-#Bayesfactor BF_10 (both theoretical and numerical)
-BF_10 <- exp(result_M1$log_evidence-result_M0$log_evidence)
-BF_10
-
-#theoritical evidence and BF_10
+#theoretical values of evidences
 Z_0 <- 1/(sqrt(2*pi)^n*sqrt(n+1))*exp(-1/2*(sum((Y-mean(Y))^2)+n*mean(Y)^2/(n+1)))
 Z_1 <- 0
 for (i in 1:(n-1)){
@@ -62,11 +58,71 @@ for (i in 1:(n-1)){
 }
 Z_1 <- Z_1/((n-1)*sqrt(2*pi)^n)
 BFtheoretical_10 <- Z_1/Z_0
+
+
+sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive=1000)
+sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive=1000)
+result_M0 <- generate(sampler_M0)
+result_M1 <- generate(sampler_M1)
+
+#results
+
+summary(result_M0)
+summary(result_M1)
+
+#Bayesfactor BF_10 (both theoretical and numerical)
+BF_10 <- exp(result_M1$log_evidence-result_M0$log_evidence)
+BF_10
+
 BFtheoretical_10
+
+#posterior distributions
+visualize(result_M0,mu1, .which = "density")
+visualize(result_M1,mu1, .which = "density")
+visualize(result_M1,mu2, .which = "density")
+visualize(result_M1,tau, .which = "density")
+
+#nested sampling error distribution
+Zhat0 <- numeric()
+Zhat1 <- numeric()
+
+for(i in 1:5000){
+  set.seed(Sys.time())
+  sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive=100)
+  sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive=100)
+  result_M0 <- generate(sampler_M0)
+  result_M1 <- generate(sampler_M1)
+  Zhat0[i] <- result_M0$log_evidence
+  Zhat1[i] <- result_M1$log_evidence
+}
+
+H0 <- result_M0$information
+
+H1 <- result_M1$information
+
+epsilon0 <- seq(min(Zhat0-log(Z_0)),max(Zhat0-log(Z_0)),by=0.001)
+
+epsilon1 <- seq(min(Zhat1-log(Z_1)),max(Zhat1-log(Z_1)),by=0.001)
+
+hist(Zhat0[1:100]-log(Z_0),freq=FALSE, 
+     main='log(Zhat0)-log(Z0) with gaussian overlay')
+
+points(epsilon0 ,2*exp(-100*epsilon0^2/(2*(H0+epsilon0)))
+       ,type='l', col='red')
+
+hist(Zhat1[1:200]-log(Z_1),freq=FALSE, 
+     main = 'log(Zhat1)-log(Z1) with gaussian overlay')
+
+points(epsilon1 ,2*exp(-100*epsilon1^2/(2*(H1+epsilon1)))
+       ,type='l', col='red')
+
+statsZhat <- matrix(c(Zhat0,Zhat1,Zhat0-log(Z_0),Zhat1-log(Z_1))
+                    ,nrow=5000,ncol=4)
 
 ###multiple mean change points
 
 #Data input
+#set.seed(123)
 n <- 500 
 tau1 <- 40 
 tau2 <- 80
@@ -74,7 +130,9 @@ tau3 <- 280
 Y  <- c(rnorm(tau1, mean=0, sd=1),rnorm(tau2-tau1,mean=2,sd=1),
         rnorm(tau3-tau2,mean=3,sd=1),rnorm(n-tau3,mean=6)) #samples
 
+#set.seed(Sys.time())
 #Loglikelihood for k change points
+
 
 loglik_Mk <- function(k){
   part <- numeric(k+1)
@@ -86,7 +144,7 @@ loglik_Mk <- function(k){
       part[1] <- sum((Y[1:theta[2]]-theta[1])^2)
     }
     if (k>0){
-    part[k+1] <- sum((Y[(theta[2*k]+1):n]-theta[2*k+1])^2)
+      part[k+1] <- sum((Y[(theta[2*k]+1):n]-theta[2*k+1])^2)
     }
     if (k>1){
       for(i in 2:k){
@@ -98,59 +156,64 @@ loglik_Mk <- function(k){
 }
 
 #priors for k change point model
-
+uniftr <- function(u) {
+  floor((n-1)*u) + 1
+}
+tau_Mk <- create_prior(vectorized_fn=uniftr, names="tau", repair="unique_quiet") #discrete uniform
+#tau_Mk <- create_uniform_prior(names= "tau", lower=1,upper=n-1) #uniform
+mu_Mk <- create_uniform_prior(names="mu",
+                              lower= min(Y), 
+                              upper =max(Y), repair="unique_quiet")
 prior_Mk <- function(k){ ### for each proposed change point we get 2 more parameters
-  finalprior <- create_uniform_prior(names=c("mu1","tau1"),
-                                     lower= c(min(Y),0), 
-                                     upper =c(max(Y),n))
+  finalprior <- mu_Mk+tau_Mk
   if (k==1){
-    finalprior <- finalprior + create_uniform_prior(names="mu2",
-                                                    lower= c(min(Y)), 
-                                                    upper =c(max(Y)))
+    finalprior <- finalprior + mu_Mk
   }
   if (k>=2){
     for (i in 2:k){
-      finalprior <- finalprior + create_uniform_prior(names=c("mu","tau"),
-                                                      lower= c(min(Y),0), 
-                                                      upper =c(max(Y),n)) 
+      finalprior <- finalprior + mu_Mk+tau_Mk 
     }
-    finalprior <- finalprior + create_uniform_prior(names="muk",
-                                                    lower= c(min(Y)), 
-                                                    upper =c(max(Y)))
+    finalprior <- finalprior + mu_Mk
   }
   finalprior
 }
 
 #test to see what percentage we get correct
-iteration <- 0
+iterations <- 100
 correct <- 0
-logevidence_Mk <- numeric(6)
-for(j in 1:100){
+logevidence_Mk <- matrix(NA, nrow = 100, ncol = 6)
 for(i in 0:5){
   Sampler_Mk <-ernest_sampler(loglik_Mk(i), prior_Mk(i), nlive=500)
-  Result_Mk <- generate(Sampler_Mk)
-  logevidence_Mk[i+1] <- Result_Mk$log_evidence
+  for(j in 1:iterations){
+    set.seed(Sys.time())
+    Result_Mk <- generate(Sampler_Mk)
+    logevidence_Mk[j,i+1] <- Result_Mk$log_evidence
+  }
 }
 
-max <- which.max(logevidence_Mk)-1 ###model with k changepoints with most log evidence 
-if (max==3){
-  correct <- correct + 1
+for(i in 1:iterations){
+  max <- which.max(logevidence_Mk[i,])
+  if (max==4){
+    correct <- correct + 1
+  }
 }
-iteration <- iteration + 1
-}
+correct
+
 ###
 ###results: number of change points 3, models (M0,...,M5)
 ###N=10,n=500,Delta=1, correct=18/100
 ###for N=20 we have 32/100 correct, 28 and 24 for n=50 (2 runs), 54 correct 
 ###for n=100, 75 correct for n=150, 82/100 for N=200, 89/100 for N=250
 
-
 ###mean and variance change
 #data input
-n <- 500
-tau <- 250
+#set.seed(123)
+n <- 100
+tau <- 50
 Y  <- c(rnorm(tau, mean=0, sd=1),rnorm(n-tau,mean=2,sd=2))
+hist(Y, breaks = 25, freq = FALSE)
 
+#set.seed(Sys.time())
 #loglikelihoods for model 0 and 1
 
 loglik_M0 <- function(theta){
@@ -164,7 +227,7 @@ loglik_M1 <- function(theta){
   mu2 <- theta[2]
   sd1 <- theta[3]
   sd2 <- theta[4]
-  tau <- as.integer(theta[5])
+  tau <- theta[5] #replace with as.integer(theta[5]) when using uniform prior
   part1 <- sum(((Y[1:tau]-mu1)/sd1)^2)
   part2 <- sum(((Y[(tau+1):n] - (mu2))/sd2)^2)
   -n/2*log(2*pi) - tau*log(sd1)-(n-tau)*log(sd2)-0.5*(part1 + part2)
@@ -173,12 +236,17 @@ loglik_M1 <- function(theta){
 #priors for model 0 and 1
 sdm <- sqrt(max((mean(Y)-Y)^2))
 
+uniftr <- function(u) {
+  floor((n-1)*u) + 1
+}
+tau_M1 <- create_prior(vectorized_fn=uniftr, names="tau") #discrete uniform
+#tau_M1 <- create_uniform_prior(names= "tau", lower=1,upper=n-1) #uniform
 Prior_M0 <- create_uniform_prior(names=c("mu", "sd"), 
                                  lower= c(min(Y),0), 
                                  upper =c(max(Y),sdm))
-Prior_M1 <- create_uniform_prior(names=c("mu1", "mu2","sd1","sd2","tau"), 
-                                 lower= c(min(Y),min(Y),0,0,0), 
-                                 upper =c(max(Y),max(Y),sdm,sdm,n))
+Prior_M1 <- create_uniform_prior(names=c("mu1", "mu2","sd1","sd2"), 
+                                 lower= c(min(Y),min(Y),0,0), 
+                                 upper =c(max(Y),max(Y),sdm,sdm))+tau_M1
 
 #nested sampling
 sampler_M0 <- ernest_sampler(loglik_M0, Prior_M0, nlive=1000)
@@ -194,6 +262,16 @@ summary(result_M1)
 logBF_10 <- result_M1$log_evidence-result_M0$log_evidence
 logBF_10
 
+#posterior distributions
+
+visualize(result_M0,mu, .which = "density")
+visualize(result_M0,sd, .which = "density")
+visualize(result_M1,mu1, .which = "density")
+visualize(result_M1,mu2, .which = "density")
+visualize(result_M1,sd1, .which = "density")
+visualize(result_M1,sd2, .which = "density")
+visualize(result_M1,tau, .which = "density")
+
 sim_M0 <- calculate(Result_M0, ndraws = 1000)
 plot(sim_M0, which = c("weight", "likelihood","evidence"))
 sim_M1 <- calculate(Result_M1, ndraws = 1000)
@@ -204,11 +282,10 @@ visualize(result_M1,.which = "trace")
 visualize(result_M0, .which = "density")
 visualize(result_M1,.which = "density")
 
-
-
 ###Normal Mixture with nested sampling, be aware that labels could be switched
 
 #data
+#set.seed(123)
 n=1000
 tau=333
 p <- 1/2
@@ -230,7 +307,9 @@ for (i in (tau+1):n){
     Y[i] <- rnorm(1,mean=15,sd=1)
   }
 }
+hist(Y, breaks = 100, freq = FALSE)
 
+#set.seed(Sys.time())
 #The loglikelihoods of models 0 and 1
 
 loglik_M0 <- function(theta){
@@ -269,8 +348,8 @@ loglik_M1 <- function(theta){
   sd4 <- theta[8]
   p1 <- theta[9]
   p2 <- theta[10]
-  tau <- as.integer(theta[11])
-
+  tau <- theta[11] #replace with as.integer(theta[11]) when using uniform prior
+  
   if(sd1 <= 0 || sd2 <= 0 || sd3 <= 0 || sd4 <= 0) return(-Inf)
   if(p1 <= 0 || p1 >= 1 || p2 <= 0 || p2 >= 1) return(-Inf)
   
@@ -286,30 +365,37 @@ loglik_M1 <- function(theta){
   logdens1_1 <- dnorm(Y[1:tau], mu1, sd1, log=TRUE)
   logdens1_2 <- dnorm(Y[1:tau], mu2, sd2, log=TRUE)
   part1 <- sum(log_mix(log(p1), log(1-p1), logdens1_1, logdens1_2))
-
+  
   logdens2_1 <- dnorm(Y[(tau+1):n], mu3, sd3, log=TRUE)
   logdens2_2 <- dnorm(Y[(tau+1):n], mu4, sd4, log=TRUE)
   part2 <- sum(log_mix(log(p2), log(1-p2), logdens2_1, logdens2_2))
-
+  
   part1 + part2
 }
 
 #priors for model 0 and 1
 sdm <- sqrt(max((mean(Y)-Y)^2))
 
+uniftr <- function(u) {
+  floor((n-1)*u) + 1
+}
+tau_M1 <- create_prior(vectorized_fn=uniftr, names="tau")#discrete uniform
+#tau_M1 <- create_uniform_prior(names= "tau", lower=1,upper=n-1) #uniform
+
 prior_M0 <- create_uniform_prior(names=c("mu1","mu2","sd1","sd2","p1"), 
                                  lower=c(min(Y),min(Y),0,0,0), 
                                  upper=c(max(Y),max(Y),sdm,sdm,1))
 prior_M1 <- create_uniform_prior(names=c("mu1","mu2","mu3","mu4",
                                          "sd1","sd2","sd3","sd4",
-                                         "p1","p2","tau"), 
+                                         "p1","p2"), 
                                  lower=c(min(Y),min(Y),min(Y),min(Y),
-                                         0,0,0,0,0,0,1), 
+                                         0,0,0,0,0,0), 
                                  upper=c(max(Y),max(Y),max(Y),max(Y),
-                                         sdm,sdm,sdm,sdm,1,1,n-1))
+                                         sdm,sdm,sdm,sdm,1,1))+tau_M1
 
 #samplers
-sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive=1000)
+sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive=1000,
+                             sampler= multi_ellipsoid(enlarge = 1.5))
 sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive=1000)
 
 #Nested sampling run
@@ -325,20 +411,8 @@ summary(result_M1)
 logBF_10 <- result_M1$log_evidence-result_M0$log_evidence
 logBF_10
 
-#To visualize and look at the behavior of parameters
+#posterior distributions
 
-sim_M0 <- calculate(result_M0, ndraws = 1000)
-plot(sim_M0, which = c("weight", "likelihood","evidence"))
-sim_M1 <- calculate(result_M1, ndraws = 1000)
-plot(sim_M1, which = c("weight", "likelihood","evidence"))
-
-visualize(result_M0,mu1,mu2,.which="trace")
-visualize(result_M0,sd1,sd2,.which="trace")
-visualize(result_M0,p1,.which="trace")
-visualize(result_M1,mu1,mu2,mu3,mu4,.which="trace")
-visualize(result_M1,sd1,sd2,sd3,sd4,.which="trace")
-visualize(result_M1,p1,p2,.which="trace")
-visualize(result_M1,tau,.which="trace")
 visualize(result_M0,mu1,.which="density")
 visualize(result_M0,mu2,.which="density")
 visualize(result_M0,sd1,.which="density")
@@ -357,6 +431,29 @@ visualize(result_M1,p2,.which="density")
 visualize(result_M1,tau,.which="density")
 
 ###Normal Mixture model with MCMC 
+#set.seed(123)
+n=100
+tau=0
+p <- 1/2
+q <- 1/3
+Y <- numeric(n)
+for (i in 1:tau){
+  if (runif(1) <= p){
+    Y[i] <- rnorm(1,mean=0,sd=0.2)
+  }
+  else{
+    Y[i] <- rnorm(1,mean=3,sd=0.3)
+  }
+}
+for (i in (tau+1):n){
+  if (runif(1) <= q){
+    Y[i] <- rnorm(1,mean=6,sd=0.2)
+  }
+  else{
+    Y[i] <- rnorm(1,mean=15,sd=1)
+  }
+}
+#set.seed(Sys.time())
 
 #burn in period
 burnin <- 10000
@@ -559,10 +656,10 @@ mh_sampler_M0 <- function(x,
     
     prop_lp_M0 <- logpost_M0(x, prop)
     
-      #we keep the maximum likelihood
-      if ((loglik_M0(prop) > llmax_M0) && (iter>burnin)){
-        llmax_M0 <- loglik_M0(prop)
-      }
+    #we keep the maximum likelihood
+    if ((loglik_M0(prop) > llmax_M0) && (iter>burnin)){
+      llmax_M0 <- loglik_M0(prop)
+    }
     
     log_alpha <- prop_lp_M0 - current_lp_M0
     
@@ -668,10 +765,10 @@ mh_sampler_M1 <- function(x,
     
     prop_lp_M1 <- logpost_M1(x, prop)
     
-      #we keep the maximum likelihood
-      if ((loglik_M1(prop) > llmax_M1) && (iter>burnin)){
-        llmax_M1 <- loglik_M1(prop)
-      }
+    #we keep the maximum likelihood
+    if ((loglik_M1(prop) > llmax_M1) && (iter>burnin)){
+      llmax_M1 <- loglik_M1(prop)
+    }
     
     log_alpha <- prop_lp_M1 - current_lp_M1
     
@@ -707,15 +804,15 @@ mh_sampler_M1 <- function(x,
 #results iterations are chosen to compare it to the time nested sampling uses.
 #~5 minutes for M0 and ~25 minutes for M1
 
-samples_M0 <- mh_sampler_M0(Y, n_iter = 1000000)
+samples_M0 <- mh_sampler_M0(Y, n_iter = 100000)
 llmax_M0 <- samples_M0[[6]]
-samples_M1 <- mh_sampler_M1(Y, n_iter = 5000000)
+samples_M1 <- mh_sampler_M1(Y, n_iter = 500000)
 llmax_M1 <- samples_M1[[12]]
 
 samples_M0 <- as.data.frame(samples_M0[1:5])
 samples_M1 <- as.data.frame(samples_M1[1:11])
-burninsamples_M0 <- samples_M0[(burnin+1):1000000,]
-burninsamples_M1 <- samples_M1[(burnin+1):5000000,]
+burninsamples_M0 <- samples_M0[(burnin+1):100000,]
+burninsamples_M1 <- samples_M1[(burnin+1):500000,]
 bic0 <- -2 * llmax_M0 + 5 * log(n)
 bic1 <- -2 * llmax_M1 + 11 * log(n)
 
