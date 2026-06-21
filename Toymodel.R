@@ -818,6 +818,7 @@ bic1 <- -2 * llmax_M1 + 11 * log(n)
 logBF10_MCMC <- (bic0 - bic1)/2
 logBF10_MCMC
 
+#posteriors
 hist(burninsamples_M0$mu1, probability =TRUE, main="Posterior samples of mu1", xlab="value")
 hist(burninsamples_M0$mu2, probability =TRUE, main="Posterior samples of mu2", xlab="value")
 hist(burninsamples_M0$s1, probability =TRUE, main="Posterior samples of s1", xlab="value")
