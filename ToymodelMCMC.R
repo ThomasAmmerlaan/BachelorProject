@@ -283,7 +283,6 @@ mh_sampler_M1 <- function(x,
   
   current_lp_M1 <- logpost_M1(x, theta)
   
-  
   # Storage
   
   out <- matrix(NA, nrow = n_iter, ncol = 11)
@@ -327,7 +326,7 @@ mh_sampler_M1 <- function(x,
     
     # Changepoint
     
-    prop$tau <- rnorm(1, theta$tau, step_tau)
+    prop$tau <- floor(rnorm(1, theta$tau, step_tau))-1
     
     # Acceptance step
     
@@ -383,6 +382,25 @@ burninsamples_M0 <- samples_M0[(burnin+1):100000,]
 burninsamples_M1 <- samples_M1[(burnin+1):500000,]
 bic0 <- -2 * llmax_M0 + 5 * log(n)
 bic1 <- -2 * llmax_M1 + 11 * log(n)
+
+#posteriors
+hist(burninsamples_M0$mu1, probability =TRUE, main="Posterior samples of mu1", xlab="value")
+hist(burninsamples_M0$mu2, probability =TRUE, main="Posterior samples of mu2", xlab="value")
+hist(burninsamples_M0$s1, probability =TRUE, main="Posterior samples of s1", xlab="value")
+hist(burninsamples_M0$s2, probability =TRUE, main="Posterior samples of s2", xlab="value")
+hist(burninsamples_M0$p1, probability =TRUE, main="Posterior samples of p1", xlab="value")
+
+hist(burninsamples_M1$mu1, probability =TRUE, main="Posterior samples of mu1", xlab="value")
+hist(burninsamples_M1$mu2, probability =TRUE, main="Posterior samples of mu2", xlab="value")
+hist(burninsamples_M1$mu3, probability =TRUE, main="Posterior samples of mu3", xlab="value")
+hist(burninsamples_M1$mu4, probability =TRUE, main="Posterior samples of mu4", xlab="value")
+hist(burninsamples_M1$s1, probability =TRUE, main="Posterior samples of s1", xlab="value")
+hist(burninsamples_M1$s1, probability =TRUE, main="Posterior samples of s2", xlab="value")
+hist(burninsamples_M1$s3, probability =TRUE, main="Posterior samples of s3", xlab="value")
+hist(burninsamples_M1$s4, probability =TRUE, main="Posterior samples of s4", xlab="value")
+hist(burninsamples_M1$p1, probability =TRUE, main="Posterior samples of p1", xlab="value")
+hist(burninsamples_M1$p2, probability =TRUE, main="Posterior samples of p2", xlab="value")
+hist(burninsamples_M1$tau, probability =TRUE, main="Posterior samples of tau", xlab="value")
 
 logBF10_MCMC <- (bic0 - bic1)/2
 logBF10_MCMC
