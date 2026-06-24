@@ -199,12 +199,6 @@ for(i in 1:iterations){
 }
 correct
 
-###
-###results: number of change points 3, models (M0,...,M5)
-###N=10,n=500,Delta=1, correct=18/100
-###for N=20 we have 32/100 correct, 28 and 24 for n=50 (2 runs), 54 correct 
-###for n=100, 75 correct for n=150, 82/100 for N=200, 89/100 for N=250
-
 ###mean and variance change
 #data input
 #set.seed(123)
