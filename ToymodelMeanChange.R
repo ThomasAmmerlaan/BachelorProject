@@ -117,8 +117,8 @@ statsZhat <- matrix(c(Zhat0,Zhat1,Zhat0-log(Z_0),Zhat1-log(Z_1)),nrow=5000,ncol=
 ###Convergence
 
 #livepoints
-livepoint <- c(2,5,10,25,50,100,250,500,750,1000,1250,1500,1750,2000,
-               2250,2500,3000)
+livepoint <- c(2,5,10,25,50,75,100,150,200,250,500,750,1000,1250,1500,1750,2000,
+               2250,2500)
 
 #statistics we want to keep
 empirical_logevidence_M0 <-numeric()
@@ -141,10 +141,9 @@ for (i in 1:length(livepoint)){
   logerrorruni_M1 <- numeric()
   informationruni_M1 <- numeric()
   for (j in 1:25){
-    sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive = livepoint[i],
-                                 seed=sample(1:100000, 1 , replace=TRUE))
-    sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive = livepoint[i],
-                                 seed=sample(1:100000, 1 , replace=TRUE))
+    set.seed(Sys.time())
+    sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive = livepoint[i])
+    sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive = livepoint[i])
     results_M0 <- generate(sampler_M0)
     results_M1 <- generate(sampler_M1)
     
@@ -188,18 +187,20 @@ plot(livepoint,empirical_logevidence_M1[1:length(livepoint)],
 abline(h=log(Z_1),col="blue")  
 legend(x="bottomright", legend=c("theoretical value"),col=c("blue"),lty=1)
 
-plot(livepoint[6:16], empirical_logevidencevar_M0[6:length(livepoint)],
+plot(livepoint[1:length(livepoint)], 
+     empirical_logevidencevar_M0[1:length(livepoint)],
      xlab="number of livepoints", 
      ylab="empirical variance of (log)evidence",main="M0")
-points(livepoint[6:16],
-       empirical_information_M0[6:length(livepoint)]/livepoint[6:16],
+points(livepoint[1:length(livepoint)],
+       empirical_information_M0[1:length(livepoint)]/livepoint[1:length(livepoint)],
        type='l', col="red")
 legend(x="topright", legend=c("emperical H"),col=c("red"),lty=1)
 
-plot(livepoint[6:16], empirical_logevidencevar_M1[6:length(livepoint)],
+plot(livepoint[1:length(livepoint)], 
+     empirical_logevidencevar_M1[1:length(livepoint)],
      xlab="number of livepoints", 
      ylab="empirical variance of (log)evidence",main="M1")
-points(livepoint[6:16],
-       empirical_information_M1[6:length(livepoint)]/livepoint[6:16],
+points(livepoint[1:length(livepoint)],
+       empirical_information_M1[1:length(livepoint)]/livepoint[1:length(livepoint)],
        type='l', col="blue")
 legend(x="topright", legend=c("emperical H"),col=c("blue"),lty=1)
