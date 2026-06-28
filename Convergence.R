@@ -155,11 +155,62 @@ for (i in 1:(n-1)){
 Z_1 <- Z_1/((n-1)*sqrt(2*pi)^n)
 BFtheoretical_10 <- Z_1/Z_0
 
+###mean change model
+#samples
+#set.seed(123)
+n <- 100
+tau <- 50
+Y <- c(rnorm(tau),rnorm(n-tau, mean= 1))
+
+hist(Y, breaks = 25, freq = FALSE)
+
+#set.seed(Sys.time())
+#loglikelihoods of model 0 and 1
+
+
+loglik_M0 <- function(theta){
+  mu <- theta[1]
+  sum(dnorm(Y[1:n], mean = mu, sd = 1, log = TRUE))
+}
+loglik_M1 <- function(theta){
+  mu1 <-theta[1]
+  mu2 <-theta[2]
+  tau <-theta[3] #replace with as.integer(theta[3]) when using uniform prior
+  part1 <- sum(dnorm(Y[1:tau], mean = mu1, sd = 1, log = TRUE))
+  part2 <- sum(dnorm(Y[(tau+1):n], mean = mu2, sd = 1, log = TRUE))
+  part1+part2
+}
+
+#priors of model 0 and 1
+prior_M0 <- create_normal_prior(names=c("mu1","dummy"))
+
+norm_M1 <- create_normal_prior(names=c("mu1","mu2"))
+#unif_M1 <- create_uniform_prior(names="tau", lower=1, upper=n-1)
+
+uniftr <- function(u) {
+  floor((n-1)*u) + 1
+}
+unif_M1 <- create_prior(vectorized_fn=uniftr, names="tau")#discrete uniform
+#tau_M1 <- create_uniform_prior(names= "tau", lower=1,upper=n-1) #uniform
+prior_M1 <- norm_M1+unif_M1
+
+#theoretical values of evidences
+Z_0 <- 1/(sqrt(2*pi)^n*sqrt(n+1))*exp(-1/2*(sum((Y-mean(Y))^2)+n*mean(Y)^2/(n+1)))
+Z_1 <- 0
+for (i in 1:(n-1)){
+  part1 <- 1/(sqrt(i+1)*sqrt((n-i)+1))
+  part2 <- exp(-1/2*(sum((Y[1:i]-mean(Y[1:i]))^2)+i*mean(Y[1:i])^2/(i+1)))
+  part3 <- exp(-1/2*(sum((Y[(i+1):n]-mean(Y[(i+1):n]))^2)+(n-i)*mean(Y[(i+1):n])^2/((n-i)+1)))
+  Z_1 <- Z_1+part1*part2*part3
+}
+Z_1 <- Z_1/((n-1)*sqrt(2*pi)^n)
+BFtheoretical_10 <- Z_1/Z_0
+
 ###Convergence
 
 #livepoints
-livepoint <- c(2,5,10,25,50,100,250,500,750,1000,1250,1500,1750,2000,
-               2250,2500,3000)
+livepoint <- c(2,5,10,25,50,75,100,150,200,250,500,750,1000,1250,1500,1750,2000,
+               2250,2500)
 
 #statistics we want to keep
 empirical_logevidence_M0 <-numeric()
@@ -182,10 +233,9 @@ for (i in 1:length(livepoint)){
   logerrorruni_M1 <- numeric()
   informationruni_M1 <- numeric()
   for (j in 1:25){
-    sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive = livepoint[i],
-                                 seed=sample(1:100000, 1 , replace=TRUE))
-    sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive = livepoint[i],
-                                 seed=sample(1:100000, 1 , replace=TRUE))
+    set.seed(Sys.time())
+    sampler_M0 <- ernest_sampler(loglik_M0, prior_M0, nlive = livepoint[i])
+    sampler_M1 <- ernest_sampler(loglik_M1, prior_M1, nlive = livepoint[i])
     results_M0 <- generate(sampler_M0)
     results_M1 <- generate(sampler_M1)
     
@@ -229,18 +279,20 @@ plot(livepoint,empirical_logevidence_M1[1:length(livepoint)],
 abline(h=log(Z_1),col="blue")  
 legend(x="bottomright", legend=c("theoretical value"),col=c("blue"),lty=1)
 
-plot(livepoint[6:16], empirical_logevidencevar_M0[6:length(livepoint)],
+plot(livepoint[1:length(livepoint)], 
+     empirical_logevidencevar_M0[1:length(livepoint)],
      xlab="number of livepoints", 
      ylab="empirical variance of (log)evidence",main="M0")
-points(livepoint[6:16],
-       empirical_information_M0[6:length(livepoint)]/livepoint[6:16],
+points(livepoint[1:length(livepoint)],
+       empirical_information_M0[1:length(livepoint)]/livepoint[1:length(livepoint)],
        type='l', col="red")
 legend(x="topright", legend=c("emperical H"),col=c("red"),lty=1)
 
-plot(livepoint[6:16], empirical_logevidencevar_M1[6:length(livepoint)],
+plot(livepoint[1:length(livepoint)], 
+     empirical_logevidencevar_M1[1:length(livepoint)],
      xlab="number of livepoints", 
      ylab="empirical variance of (log)evidence",main="M1")
-points(livepoint[6:16],
-       empirical_information_M1[6:length(livepoint)]/livepoint[6:16],
+points(livepoint[1:length(livepoint)],
+       empirical_information_M1[1:length(livepoint)]/livepoint[1:length(livepoint)],
        type='l', col="blue")
 legend(x="topright", legend=c("emperical H"),col=c("blue"),lty=1)
