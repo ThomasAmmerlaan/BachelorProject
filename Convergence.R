@@ -22,7 +22,8 @@ uniform <- create_uniform_prior(names = c("mu","dummy"),
 normal <- create_normal_prior(names=c("mu","dummy"))
 
 #number of livepoints we run
-livepoint <- c(seq(5, 100, by = 5),seq(110, 500, by = 10),seq(550, 1000, by = 50))
+livepoint <- c(2, 5, 10, 25, 50, 100, 250, 500, 750, 1000, 1250, 1500,
+1750, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000)
 #The statistics we want to hold  
 empirical_logevidenceunif <-numeric()
 empirical_logevidence_sdunif <-numeric()
@@ -43,7 +44,7 @@ for (i in 1:length(livepoint)){
   logevidenceruninormal <- numeric()
   logerrorruninormal <- numeric()
   informationruninormal <- numeric()
-  for (j in 1:100){
+  for (j in 1:25){
     set.seed(Sys.time())
     sampleruniform <- ernest_sampler(logf, uniform, nlive = livepoint[i])
     samplernormal <- ernest_sampler(logf, normal, nlive = livepoint[i])
